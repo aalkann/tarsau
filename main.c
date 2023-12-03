@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <dirent.h>
 
-
 int getFileSize(char* fileName){
     FILE *file = fopen(fileName,"r");
     fseek(file,0,SEEK_END);
@@ -36,6 +35,15 @@ int getFilePermissions(const char *filename) {
     }
     int decimalNumber = fileStat.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
     return decimalNumber;
+}
+
+mode_t getFilePermissionAsMode(const char *filename) {
+    struct stat fileStat;
+    if (stat(filename, &fileStat) == -1) {
+        perror("Error in getting file information");
+        return -1;  
+    }
+    return fileStat.st_mode ;
 }
 
 char *getPermissionString(const char *filename) {
@@ -228,12 +236,12 @@ int main(int argc, char* argv[]){
         break;
     
     case 'a':
+
         FILE* archiveFile = fopen(archiveFileName,"r");
         if (archiveFile == NULL){
             perror("Archive file is inappropriate or corrupt!");
             exit(1);
         }
-
 
         if(!isDirectoryExists(archiveOpenDirectoryName))
             createDirectory(archiveOpenDirectoryName);
@@ -241,38 +249,29 @@ int main(int argc, char* argv[]){
         char buffer[1024];
         char* word = (char*) malloc(100);
         char* fileName = (char*) malloc(100);
-        char* filePermString;
-        int filePermDecimal;
+        char * filePerm = (char*) malloc(100);
+        char* filePermDecimal = (char*) malloc(30);
         int fileSize;
         char* path = (char* )malloc(300);
         
         fgets(buffer,sizeof(buffer),archiveFile);
 
         int cursorRecordLeft = ftell(archiveFile);
-        int cursorReadStart=atoi(buffer);
+        int cursorReadStart = atoi(buffer);
 
         while (fgets(buffer,sizeof(buffer),archiveFile)!= NULL)
         {  
-            
-
             if(buffer[0] != '|') break;
             word = strtok (buffer,",|()");
             strcpy(fileName,word);
-            // strcat(fileName,"_tarsau");
-            printf ("%s\n",fileName);
             
             word = strtok (NULL, ",|()");
-            filePermString = word;
-            printf ("%s\n",filePermString);
-
             word = strtok (NULL, ",|()");
-            filePermDecimal = atoi(word);
-            printf ("%d\n",filePermDecimal);
+            strcpy(filePermDecimal,word);
 
             word = strtok (NULL, ",|()");
             word = strtok (NULL, ",|()");
             fileSize = atoi(word);
-            printf ("%d\n",fileSize);
 
             cursorRecordLeft = ftell(archiveFile);
             fseek(archiveFile,cursorReadStart+1,SEEK_SET);
@@ -280,6 +279,7 @@ int main(int argc, char* argv[]){
             FILE* newFile = NULL;
             if(archiveOpenDirectoryName == NULL){
                 newFile = fopen(fileName,"w");
+                strcpy(path,fileName);
             }
             else{
                 path = strcpy(path,archiveOpenDirectoryName);
@@ -303,11 +303,28 @@ int main(int argc, char* argv[]){
 
             cursorReadStart += fileSize;
             fclose(newFile);
+
+            // Change file Permission
+                mode_t filePerm = (mode_t) strtol(filePermDecimal, NULL, 8);
+                // Set the permissions of the new file to be the same as the existing file
+
+                if (chmod(path, filePerm) == -1) {
+                    perror("Error setting new file permissions");
+                    return EXIT_FAILURE;
+                }
+            //
+
+
             fseek(archiveFile,cursorRecordLeft,SEEK_SET);
         }
 
         free(path);
+        free(fileName);
+        free(filePermDecimal);
+        free(filePerm);
+        fclose(archiveFile);
         break;
+        
     default:
         break;
     }
