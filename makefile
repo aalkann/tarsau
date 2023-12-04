@@ -1,5 +1,5 @@
 all: compile 
 
 compile:
-	gcc main.c -o main
+	gcc tarsau.c -o tarsau
 

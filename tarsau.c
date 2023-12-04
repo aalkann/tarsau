@@ -13,12 +13,31 @@ int getFileSize(char* fileName){
     fclose(file);
     return size;
 }
+
 int isDirectoryExists(const char *path) {
     struct stat info;
     if (stat(path, &info) != 0) {
-        return 0;  // Directory does not exist
+        return 0;  // Not exist
     }
     return (info.st_mode & __S_IFDIR) != 0;
+}
+
+int isTextFile(const char* fileName){
+    int character;
+    FILE* file = fopen(fileName,"r");
+    if (file == NULL){
+        perror("Error opening input file");
+        exit(EXIT_FAILURE);
+    }
+    while ((character = fgetc(file)) != EOF) {
+        if (character < 0 || character > 127) {
+            fclose(file);
+            return 0; // Not an ASCII file
+        }
+    }
+    fclose(file);
+    return 1;
+    
 }
 
 int createDirectory(const char *path) {
@@ -35,15 +54,6 @@ int getFilePermissions(const char *filename) {
     }
     int decimalNumber = fileStat.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
     return decimalNumber;
-}
-
-mode_t getFilePermissionAsMode(const char *filename) {
-    struct stat fileStat;
-    if (stat(filename, &fileStat) == -1) {
-        perror("Error in getting file information");
-        return -1;  
-    }
-    return fileStat.st_mode ;
 }
 
 char *getPermissionString(const char *filename) {
@@ -85,6 +95,7 @@ int getDecimalLength(int number) {
     return length;
 }
 
+// Write the organizations section into the file without Total Size of Organization Section
 int writeOrganization( char* fileNames[],int fileCounts,FILE* file){
 
     for (int i = 0; i < fileCounts; i++)
@@ -99,6 +110,8 @@ int writeOrganization( char* fileNames[],int fileCounts,FILE* file){
     int recordSizeLength = getDecimalLength(recordsSize);
     return recordsSize + recordSizeLength;
 }
+
+// Write the organizations section into the file with Total Size of Organization Section
 void writeOrganizationSize(char* fileNames[],int fileCounts,FILE* file,int size){
       
     fprintf(file,"%d\n",size);
@@ -115,7 +128,7 @@ void writeOrganizationSize(char* fileNames[],int fileCounts,FILE* file,int size)
 // GLOBAL VARIABLES
 int MAXFILESIZE = 209715200; // 200 Mbyte
 int MAXINPUTFILECOUNT = 32;
-//
+
 
 int main(int argc, char* argv[]){
 
@@ -134,11 +147,14 @@ int main(int argc, char* argv[]){
 
     char mainOperator = argv[1][1];
     char currentOperator;
+
     // Variables for -b
     char* inputFileNames[argc-2];
     int inputFileCount = 0;
+    
     // Variables for -o
     char* outputFileName="a.sau";
+    
     // Variables for -a
     char* archiveFileName=NULL;
     char* archiveOpenDirectoryName=NULL;
@@ -162,8 +178,14 @@ int main(int argc, char* argv[]){
                 printf("File '%s' does not exist\n",argv[i]);
                 exit(1);
             }
+            if(isTextFile(argv[i]) == 0){
+                printf("%s  input file format is incompatible!\n",argv[i]);
+                exit(0);
+            }
+
             inputFileNames[inputFileCount] = argv[i];
             inputFileCount++;
+
             break;
         case 'o':
             outputFileName = argv[i];
@@ -190,7 +212,7 @@ int main(int argc, char* argv[]){
     switch (mainOperator)
     {
     case 'b':
-        // Control the total size of input files
+    
         int totalFileSize = 0;
         for (int i = 0; i < inputFileCount; i++)
         {
